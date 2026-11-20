@@ -264,7 +264,7 @@ const CFG = {
   storageKey: 'tcf_atr_db_v1',
   /* Automatic Google Sheets sync: paste the Apps Script web app URL (ending in /exec) and its token here
      so every computer that opens the site syncs without any setup. Can also be set per browser in Data & sync. */
-  sheetsUrl: 'https://script.google.com/macros/s/AKfycbxXDlFb1fTit_5Z7swk6LlZSbRreXqaHPK25cQBclWFpIRRwhySzNOjKBYSEVl5hxc_/exec',
+  sheetsUrl: 'https://script.google.com/macros/s/AKfycby64t6tO_LmD8ib4YVOIXYHDak7QqZcTy8rd3LzGYZm8go52G9ugbczJyPADBOS7gPHjw/exec',
   sheetsToken: 'atr-tcf-2026',
   queueKey: 'tcf_atr_queue_v1',
   syncKey: 'tcf_atr_sync_v1',
@@ -990,7 +990,7 @@ function pageMasters() {
 
 /* ---------- Data & sync ---------- */
 const SHEET_TABS = { apo: 'APO', expenditure: 'Expenditure', receipts: 'Receipts', cheques: 'Cheques Issued', activities: 'Activities', revenueItems: 'Revenue Items' };
-function syncCfg() { let c = {}; try { c = JSON.parse(localStorage.getItem(CFG.syncKey) || '{}'); } catch { } return { ...c, url: c.url || CFG.sheetsUrl, token: c.token || CFG.sheetsToken }; }
+function syncCfg() { let c = {}; try { c = JSON.parse(localStorage.getItem(CFG.syncKey) || '{}'); } catch { } return { ...c, url: CFG.sheetsUrl || c.url, token: CFG.sheetsUrl ? CFG.sheetsToken : c.token }; }
 
 /* ---------- Automatic sync: every save/delete is queued and written to the sheet row by row ---------- */
 const SYNC = { status: 'off', lastPull: 0, busy: false };
