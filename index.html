@@ -210,6 +210,37 @@ footer.site{max-width:1440px;margin:0 auto;padding:0 20px 30px;color:var(--muted
 .sync{display:inline-block;margin-top:6px;font-size:11.5px;padding:2px 10px;border-radius:999px;background:rgba(255,255,255,.12);color:#e6f1ea;text-decoration:none}
 .sync.ok::before,.sync.busy::before,.sync.err::before,.sync.pending::before{content:"● "}
 .sync.ok::before{color:#7fd6a3}.sync.busy::before{color:var(--gold)}.sync.err::before,.sync.pending::before{color:#ff9c8f}.sync.off::before{content:"○ "}
+
+/* Reports */
+.rep-wrap{overflow:auto}
+.rep-doc{background:#fff;color:#111;min-width:640px}
+.rep-head{display:flex;align-items:center;gap:14px;border-bottom:3px double var(--forest);padding-bottom:10px;margin-bottom:12px}
+.rep-head img{width:64px;height:64px}
+.rep-head > div{flex:1;text-align:center}
+.rep-org{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+.rep-t1{font-size:17px;font-weight:700;color:var(--forest)}
+.rep-t2{font-size:15px;font-weight:600;margin-top:2px}
+.rep-f{font-size:12px;color:var(--ink-2);margin-top:4px}
+.rep-doc h4{margin:16px 0 6px;font-size:13.5px;color:var(--forest);border-left:4px solid var(--gold);padding-left:8px}
+table.rep{width:100%;border-collapse:collapse;font-size:12px}
+table.rep th,table.rep td{border:1px solid #c9d2cd;padding:4px 6px;vertical-align:top;text-align:left}
+table.rep th{background:#e9f0eb;font-weight:700}
+table.rep .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+table.rep td.wrap{min-width:200px}
+table.rep tfoot td{font-weight:700;background:#f6efd2}
+table.rep.compact th,table.rep.compact td{padding:3px 4px;font-size:11px}
+.rep-grand{display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:flex-end;margin-top:12px;padding:8px 10px;background:#f6efd2;border:1px solid #e3d59a;font-size:13px}
+.rep-grand b{margin-left:6px}
+.rep-foot{display:flex;justify-content:space-between;gap:20px;margin-top:40px;font-size:11px;color:var(--ink-2)}
+.rep-foot .sig{border-top:1px solid #555;padding-top:4px;min-width:240px;text-align:center}
+@media print{
+  body.print-report .site-header,body.print-report nav.side,body.print-report footer.site,body.print-report .page-head,body.print-report .rep-controls,body.print-report .toast{display:none!important}
+  body.print-report .card.rep-wrap{border:0;padding:0;margin:0;overflow:visible}
+  body.print-report .rep-doc{min-width:0}
+  body.print-report table.rep thead{display:table-header-group}
+  body.print-report table.rep tr{page-break-inside:avoid}
+  body.print-report *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 </style>
 </head>
 <body>
@@ -233,6 +264,7 @@ footer.site{max-width:1440px;margin:0 auto;padding:0 20px 30px;color:var(--muted
     <a href="#/expenditure"><span class="n">2</span>Expenditure</a>
     <a href="#/receipts"><span class="n">3</span>Receipts</a>
     <a href="#/cheques"><span class="n">4</span>Cheques Issued</a>
+    <a href="#/reports"><span class="n">▤</span>Reports</a>
     <div class="grp">Setup</div>
     <a href="#/masters"><span class="n">≡</span>Master lists</a>
     <a href="#/data"><span class="n">⇅</span>Data &amp; sync</a>
@@ -1105,8 +1137,179 @@ function pageData() {
 
 const APPS_SCRIPT = "/**\n * TCF Scheme \u2013 Amrabad Tiger Reserve\n * Google Sheets sync for the TCF finance website.\n * Deploy: Deploy > New deployment > Web app (Execute as: Me, Who has access: Anyone).\n */\nconst TOKEN = 'atr-tcf-2026';   // must match the token entered on the website\n\nconst SHEETS = {\n  apo:          { id: '15QT66wIIJFqDNzHnRN4LzcXQdGV33sUphaGLBxuym3c', tab: 'APO' },\n  expenditure:  { id: '1UNxY_Z8896wg-vpiekG54xjDqgpAyZ-jQcdMUoPh4ck', tab: 'Expenditure' },\n  receipts:     { id: '1iF8TdiHyS5DlUNoB0gZZhc5IPqwcLOx-Lkfcc-8RSm0', tab: 'Sheet1' },\n  cheques:      { id: '1vMnB8Emik7lpqz9ky9SarVDyvTNVo94d9K3V8TwXQcU', tab: 'cheques' },\n  activities:   { id: '1nlClTyRfrTsOisQzIvBD_U3G63JUYIjNaCmcuMcyvVo', tab: 'activities' },\n  revenueItems: { id: '1Cc3MeWrpNVErpwOzzfPEiBQ74k5f3ZN1Oj8aJhL-Nng', tab: 'revenueactivities' },\n};\n\nfunction out_(o) {\n  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);\n}\n\n/** Pull: returns every sheet as rows of displayed values (first row = headers). */\nfunction doGet(e) {\n  if ((e.parameter.token || '') !== TOKEN) return out_({ ok: false, error: 'Wrong token' });\n  const data = {};\n  Object.keys(SHEETS).forEach(function (k) {\n    const sh = SpreadsheetApp.openById(SHEETS[k].id).getSheetByName(SHEETS[k].tab);\n    data[k] = sh.getDataRange().getDisplayValues()\n      .filter(function (r) { return r.some(function (c) { return String(c).trim() !== ''; }); });\n  });\n  return out_({ ok: true, data: data });\n}\n\n/** Row-by-row changes sent automatically by the website on every save / delete. */\nfunction applyOps_(ops) {\n  const norm = function (s) { return String(s).trim().toLowerCase(); };\n  ops.forEach(function (o) {\n    const cfg = SHEETS[o.t];\n    if (!cfg) return;\n    const sh = SpreadsheetApp.openById(cfg.id).getSheetByName(cfg.tab);\n    const head = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getDisplayValues()[0].map(String);\n    const idCol = head.map(norm).findIndex(function (h) { return h === 'id' || h === 'id no'; });\n    if (idCol < 0) throw new Error('No ID column in ' + cfg.tab);\n    const last = sh.getLastRow();\n    const ids = last > 1 ? sh.getRange(2, idCol + 1, last - 1, 1).getDisplayValues().map(function (r) { return String(r[0]).trim(); }) : [];\n    const at = ids.indexOf(String(o.id).trim());\n    if (o.del) { if (at >= 0) sh.deleteRow(at + 2); return; }\n    o.headers.forEach(function (h) {           // add any new column (e.g. APO ID) to the header row\n      if (head.map(norm).indexOf(norm(h)) < 0) { head.push(h); sh.getRange(1, head.length).setValue(h); }\n    });\n    const keys = head.map(norm);\n    const row = at >= 0 ? sh.getRange(at + 2, 1, 1, head.length).getValues()[0] : head.map(function () { return ''; });\n    o.headers.forEach(function (h, i) { row[keys.indexOf(norm(h))] = o.row[i]; });\n    if (at >= 0) sh.getRange(at + 2, 1, 1, head.length).setValues([row]);\n    else sh.appendRow(row);\n  });\n}\n\n/** POST: action \"ops\" = automatic row changes; action \"push\" = back up each tab, then overwrite it. */\nfunction doPost(e) {\n  const body = JSON.parse(e.postData.contents);\n  if (body.token !== TOKEN) return out_({ ok: false, error: 'Wrong token' });\n  const lock = LockService.getScriptLock();\n  lock.waitLock(30000);\n  try {\n    if (body.action === 'ops') { applyOps_(body.ops || []); return out_({ ok: true }); }\n    const stamp = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd HHmmss');\n    Object.keys(SHEETS).forEach(function (k) {\n      const rows = body.data[k];\n      if (!rows || !rows.length) return;\n      const ss = SpreadsheetApp.openById(SHEETS[k].id);\n      const sh = ss.getSheetByName(SHEETS[k].tab);\n      sh.copyTo(ss).setName(SHEETS[k].tab + ' backup ' + stamp);   // delete old backup tabs from time to time\n      const width = Math.max.apply(null, rows.map(function (r) { return r.length; }));\n      const values = rows.map(function (r) { const a = r.slice(); while (a.length < width) a.push(''); return a; });\n      sh.clearContents();\n      sh.getRange(1, 1, values.length, width).setValues(values);\n    });\n    return out_({ ok: true });\n  } finally {\n    lock.releaseLock();\n  }\n}\n";
 
+/* ======================= REPORTS ======================= */
+const REPORTS = [
+  { id: 'consolidated', name: 'Consolidated abstract (all modules, division-wise)', f: ['year', 'division'] },
+  { id: 'apo', name: 'APO statement (component-wise works list)', f: ['year', 'division', 'component'] },
+  { id: 'util', name: 'APO vs Expenditure – utilisation & balance', f: ['year', 'division', 'component', 'months'] },
+  { id: 'expReg', name: 'Expenditure register (detailed)', f: ['year', 'division', 'range', 'component', 'months'] },
+  { id: 'expAbs', name: 'Expenditure abstract – component × month', f: ['year', 'division', 'range', 'months'], wide: 1 },
+  { id: 'recReg', name: 'Receipts register (detailed)', f: ['year', 'division', 'range', 'months', 'mode'] },
+  { id: 'recAbs', name: 'Receipts abstract – revenue item × month', f: ['year', 'division', 'range', 'months'], wide: 1 },
+  { id: 'chqReg', name: 'Cheques issued register', f: ['year', 'division', 'months', 'reimb'] },
+];
+function repFilterRows(t, F, opts = {}) {
+  const fi = monthIdx(F.from || 'April'), ti = monthIdx(F.to || 'March');
+  return DB[t].filter(r => (!F.year || r.year === F.year) && (!F.division || r.division === F.division)
+    && (!F.range || opts.noRange || r.range === F.range) && (!F.component || opts.noComp || r.component === F.component)
+    && (opts.noMonth || !r.month || (monthIdx(r.month) >= fi && monthIdx(r.month) <= ti))
+    && (!F.mode || r.mode === F.mode) && (!F.reimb || (F.reimb === 'Yes') === !!r.reimbursement));
+}
+const sumBy = (a, k) => a.reduce((s, r) => s + num(typeof k === 'function' ? k(r) : r[k]), 0);
+function monthsInRange(F) { const fi = monthIdx(F.from || 'April'), ti = monthIdx(F.to || 'March'); return CFG.months.slice(fi, ti + 1); }
+/* A report = { title, sections: [{ heading, cols:[{h, money, num}], rows:[[...]], rowCls:[], total:[...] }] , notes:[] } */
+function buildReport(id, F) {
+  const M = monthsInRange(F), S = [];
+  const mcol = h => ({ h, money: 1 });
+  if (id === 'consolidated') {
+    const rows = divisions().filter(d => !F.division || d === F.division).map(d => {
+      const G = { ...F, division: d };
+      const ap = sumBy(repFilterRows('apo', G, { noMonth: 1 }), 'fin'), ex = sumBy(repFilterRows('expenditure', G), 'fin');
+      return [d, ap, ex, ap - ex, ap ? ex / ap * 100 : 0, sumBy(repFilterRows('receipts', G), 'fin'), sumBy(repFilterRows('cheques', G), 'amount'), sumBy(repFilterRows('cheques', G).filter(c => c.reimbursement), 'amount')];
+    });
+    const tot = [1, 2, 3, 5, 6, 7].reduce((o, i) => (o[i] = rows.reduce((s, r) => s + r[i], 0), o), ['Total']);
+    tot[4] = tot[1] ? tot[2] / tot[1] * 100 : 0;
+    S.push({ heading: 'Division-wise abstract', cols: [{ h: 'Division' }, mcol('APO amount'), mcol('Expenditure'), mcol('Balance'), { h: 'Utilisation %', pct: 1 }, mcol('Receipts'), mcol('Cheques issued'), mcol('of which reimbursement')], rows, total: tot });
+    const comps = uniq(repFilterRows('apo', F, { noMonth: 1 }).map(a => a.component).concat(repFilterRows('expenditure', F).map(e => e.component))).sort();
+    const cr = comps.map(c => { const G = { ...F, component: c }; const ap = sumBy(repFilterRows('apo', G, { noMonth: 1 }), 'fin'), ex = sumBy(repFilterRows('expenditure', G), 'fin'); return [c, ap, ex, ap - ex, ap ? ex / ap * 100 : 0]; });
+    S.push({ heading: 'Component-wise APO and expenditure', cols: [{ h: 'Component' }, mcol('APO amount'), mcol('Expenditure'), mcol('Balance'), { h: 'Utilisation %', pct: 1 }], rows: cr, total: ['Total', tot[1], tot[2], tot[3], tot[4]] });
+  }
+  if (id === 'apo') {
+    const apo = repFilterRows('apo', F, { noMonth: 1 }).sort((a, b) => a.component.localeCompare(b.component) || a.division.localeCompare(b.division) || a.activity.localeCompare(b.activity) || a.id - b.id);
+    uniq(apo.map(a => a.component)).forEach(c => {
+      const L = apo.filter(a => a.component === c); let i = 0;
+      S.push({ heading: c, cols: [{ h: 'S.No' }, { h: 'APO ID' }, { h: 'Division' }, { h: 'Activity' }, { h: 'Name of the work', wrap: 1 }, { h: 'Unit' }, mcol('Cost'), { h: 'Phy', num: 1 }, mcol('Fin')],
+        rows: L.map(a => [++i, a.id, a.division, a.activity, a.work, a.unit, a.cost, a.phy, a.fin]), total: ['', '', '', '', `Sub-total (${L.length} works)`, '', '', '', sumBy(L, 'fin')] });
+    });
+    S.grand = ['Grand total', sumBy(apo, 'fin')];
+  }
+  if (id === 'util') {
+    const apo = repFilterRows('apo', F, { noMonth: 1 }); const exp = repFilterRows('expenditure', F);
+    const sp = new Map(); exp.forEach(e => { if (e.apoId) sp.set(+e.apoId, (sp.get(+e.apoId) || 0) + num(e.fin)); });
+    uniq(apo.map(a => a.component)).sort().forEach(c => {
+      const L = apo.filter(a => a.component === c).sort((a, b) => a.division.localeCompare(b.division) || a.activity.localeCompare(b.activity) || a.id - b.id);
+      const rows = L.map(a => { const s = sp.get(+a.id) || 0; return [a.id, a.division, a.activity, a.work, num(a.fin), s, num(a.fin) - s, a.fin ? s / a.fin * 100 : 0]; });
+      const p = sumBy(L, 'fin'), s = rows.reduce((x, r) => x + r[5], 0);
+      S.push({ heading: c, cols: [{ h: 'APO ID' }, { h: 'Division' }, { h: 'Activity' }, { h: 'Name of the work', wrap: 1 }, mcol('APO amount'), mcol('Spent'), mcol('Balance'), { h: 'Util. %', pct: 1 }], rows, total: ['', '', '', 'Sub-total', p, s, p - s, p ? s / p * 100 : 0] });
+    });
+    const P = sumBy(apo, 'fin'), E = sumBy(exp.filter(e => e.apoId && apoById(e.apoId)), 'fin');
+    S.grand = ['Grand total – APO', P, 'Spent', E, 'Balance', P - E];
+    const un = exp.filter(e => !(e.apoId && apoById(e.apoId)));
+    if (un.length) S.push({ heading: 'Expenditure not linked to an APO work', cols: [{ h: 'Exp. ID' }, { h: 'Month' }, { h: 'Division' }, { h: 'Component' }, { h: 'Activity' }, { h: 'Name of the work', wrap: 1 }, mcol('Amount')], rows: un.map(e => [e.id, e.month, e.division, e.component, e.activity, e.work, e.fin]), total: ['', '', '', '', '', 'Total', sumBy(un, 'fin')] });
+  }
+  if (id === 'expReg') {
+    const exp = repFilterRows('expenditure', F).sort((a, b) => a.component.localeCompare(b.component) || monthIdx(a.month) - monthIdx(b.month) || a.id - b.id);
+    uniq(exp.map(e => e.component)).forEach(c => {
+      const L = exp.filter(e => e.component === c);
+      S.push({ heading: c, cols: [{ h: 'ID' }, { h: 'Month' }, { h: 'Division' }, { h: 'Range' }, { h: 'Activity' }, { h: 'Name of the work', wrap: 1 }, { h: 'SO No', wrap: 1 }, { h: 'Voucher No' }, { h: 'Voucher date', date: 1 }, { h: 'Qty', num: 1 }, mcol('Amount')],
+        rows: L.map(e => [e.id, e.month, e.division, e.range, e.activity, e.work, e.soNo, e.voucherNo, e.voucherDate, e.qty, e.fin]), total: ['', '', '', '', '', '', '', '', '', 'Sub-total', sumBy(L, 'fin')] });
+    });
+    S.grand = ['Grand total', sumBy(exp, 'fin'), 'Entries', exp.length];
+  }
+  if (id === 'expAbs' || id === 'recAbs') {
+    const isE = id === 'expAbs'; const rows0 = repFilterRows(isE ? 'expenditure' : 'receipts', F);
+    const key = isE ? 'component' : 'activity';
+    const names = uniq(rows0.map(r => r[key])).sort();
+    const rows = names.map(n => { const L = rows0.filter(r => r[key] === n); const v = M.map(m => sumBy(L.filter(r => r.month === m), 'fin')); return [n, ...v, v.reduce((a, b) => a + b, 0)]; });
+    const tot = ['Total', ...M.map((m, i) => rows.reduce((s, r) => s + r[i + 1], 0))]; tot.push(tot.slice(1).reduce((a, b) => a + b, 0));
+    S.push({ heading: isE ? 'Component-wise monthly expenditure' : 'Revenue item-wise monthly receipts', cols: [{ h: isE ? 'Component' : 'Revenue item' }, ...M.map(m => mcol(m.slice(0, 3))), mcol('Total')], rows, total: tot, compact: 1 });
+    if (!isE) {
+      const modes = uniq(rows0.map(r => r.mode)); const mr = modes.map(md => { const v = M.map(m => sumBy(rows0.filter(r => r.mode === md && r.month === m), 'fin')); return [md, ...v, v.reduce((a, b) => a + b, 0)]; });
+      S.push({ heading: 'Mode of payment', cols: [{ h: 'Mode' }, ...M.map(m => mcol(m.slice(0, 3))), mcol('Total')], rows: mr, total: tot, compact: 1 });
+    }
+  }
+  if (id === 'recReg') {
+    const rec = repFilterRows('receipts', F).sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.id - b.id);
+    S.push({ heading: 'Receipts', cols: [{ h: 'ID' }, { h: 'Date', date: 1 }, { h: 'Division' }, { h: 'Range' }, { h: 'Revenue item' }, { h: 'Depositor' }, { h: 'Mode' }, { h: 'Receipt No' }, mcol('Amount')],
+      rows: rec.map(r => [r.id, r.date, r.division, r.range, r.activity, r.depositor, r.mode, r.receiptNo, r.fin]), total: ['', '', '', '', '', '', '', 'Total', sumBy(rec, 'fin')] });
+    const items = uniq(rec.map(r => r.activity)).sort();
+    S.push({ heading: 'Summary by revenue item', cols: [{ h: 'Revenue item' }, { h: 'Receipts', num: 1 }, mcol('Amount')], rows: items.map(n => { const L = rec.filter(r => r.activity === n); return [n, L.length, sumBy(L, 'fin')]; }), total: ['Total', rec.length, sumBy(rec, 'fin')] });
+  }
+  if (id === 'chqReg') {
+    const ch = repFilterRows('cheques', F).sort((a, b) => monthIdx(a.month) - monthIdx(b.month) || (a.date || '').localeCompare(b.date || '') || a.id - b.id);
+    S.push({ heading: 'Cheques issued', cols: [{ h: 'ID' }, { h: 'Month' }, { h: 'Division' }, { h: 'Cheque No' }, { h: 'Date', date: 1 }, mcol('Amount'), { h: 'Reimb.' }, { h: 'Scheme' }, { h: 'Proceeding' }],
+      rows: ch.map(c => [c.id, c.month, c.division, c.chequeNo, c.date, c.amount, c.reimbursement ? 'Yes' : 'No', c.schemeReimb, (c.proceeding || '').split('/').pop()]), total: ['', '', '', '', 'Total', sumBy(ch, 'amount'), '', '', ''] });
+    const ds = uniq(ch.map(c => c.division));
+    S.push({ heading: 'Summary by division', cols: [{ h: 'Division' }, { h: 'Cheques', num: 1 }, mcol('Amount'), mcol('Reimbursement'), mcol('Non-reimbursement')], rows: ds.map(d => { const L = ch.filter(c => c.division === d); const r = sumBy(L.filter(c => c.reimbursement), 'amount'); return [d, L.length, sumBy(L, 'amount'), r, sumBy(L, 'amount') - r]; }),
+      total: ['Total', ch.length, sumBy(ch, 'amount'), sumBy(ch.filter(c => c.reimbursement), 'amount'), sumBy(ch.filter(c => !c.reimbursement), 'amount')] });
+  }
+  return S;
+}
+function repCell(c, v) {
+  if (v === null || v === undefined || v === '') return '';
+  if ((c.money || c.num || c.pct) && typeof v === 'string' && isNaN(+v)) return esc(v);
+  if (c.money && typeof v === 'number') return inr(v);
+  if (c.money && v !== '' && !isNaN(+v)) return inr(+v);
+  if (c.pct) return nf2.format(num(v)) + '%';
+  if (c.num) return nfq.format(num(v));
+  if (c.date) return fmtDate(v);
+  return esc(v);
+}
+function repFiltersText(F) {
+  const p = [`Financial year: ${F.year || 'All'}`, `Division: ${F.division || 'All'}`];
+  if (F.range) p.push('Range: ' + F.range); if (F.component) p.push('Component: ' + F.component);
+  if ((F.from && F.from !== 'April') || (F.to && F.to !== 'March')) p.push(`Period: ${F.from || 'April'} to ${F.to || 'March'}`);
+  if (F.mode) p.push('Mode: ' + F.mode); if (F.reimb) p.push('Reimbursement: ' + F.reimb);
+  return p.join(' · ');
+}
+function reportHTML(rep, F, S) {
+  const imgs = $$('.brand img').map(i => i.src);
+  const now = new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const sec = S.map(s => `<h4>${esc(s.heading)}</h4><table class="rep${s.compact ? ' compact' : ''}"><thead><tr>${s.cols.map(c => `<th class="${c.money || c.num || c.pct ? 'num' : ''}">${esc(c.h)}</th>`).join('')}</tr></thead>
+    <tbody>${s.rows.length ? s.rows.map(r => `<tr>${s.cols.map((c, i) => `<td class="${c.money || c.num || c.pct ? 'num' : ''}${c.wrap ? ' wrap' : ''}${c.money && num(r[i]) < 0 ? ' neg' : ''}">${repCell(c, r[i])}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${s.cols.length}" class="empty">No records for this selection.</td></tr>`}</tbody>
+    ${s.total && s.rows.length ? `<tfoot><tr>${s.cols.map((c, i) => `<td class="${c.money || c.num || c.pct ? 'num' : ''}">${typeof s.total[i] === 'number' && !c.money && !c.num && !c.pct ? esc(s.total[i]) : repCell(c, s.total[i]) || esc(s.total[i] ?? '')}</td>`).join('')}</tr></tfoot>` : ''}</table>`).join('');
+  const grand = S.grand ? `<div class="rep-grand">${S.grand.map((v, i) => i % 2 ? `<b>${typeof v === 'number' && !/Entries/.test(S.grand[i - 1]) ? inr(v) : nf0.format(v)}</b>` : `<span>${esc(v)}</span>`).join('')}</div>` : '';
+  return `<div class="rep-doc" id="repDoc">
+    <div class="rep-head"><img src="${imgs[0] || ''}" alt="Government of Telangana emblem"><div><div class="rep-org">Government of Telangana · Forest Department</div><div class="rep-t1">Tiger Conservation Foundation Scheme – Amrabad Tiger Reserve</div><div class="rep-t2">${esc(rep.name)}</div><div class="rep-f">${esc(repFiltersText(F))}</div></div><img src="${imgs[1] || ''}" alt="Amrabad Tiger Reserve logo"></div>
+    ${sec}${grand}
+    <div class="rep-foot"><span>Generated on ${esc(now)} from the TCF Scheme website</span><span class="sig">Signature of the Accounts Officer / Field Director</span></div></div>`;
+}
+function reportExcel(rep, F, S) {
+  const style = '<style>td,th{border:1px solid #999;padding:3px 6px;font-family:Calibri,Arial;font-size:11pt;vertical-align:top} th{background:#e3ece6} .n{mso-number-format:"#,##0";text-align:right} .p{mso-number-format:"0.00";text-align:right} h3,h4{font-family:Calibri,Arial} tfoot td{font-weight:bold;background:#f6efd2}</style>';
+  const raw = (c, v) => v === null || v === undefined ? '' : c.money || c.num || c.pct ? (v === '' || isNaN(+v) ? esc(v) : +(+v).toFixed(2)) : c.date ? fmtDate(v) : esc(v);
+  const body = S.map(s => `<h4>${esc(s.heading)}</h4><table><thead><tr>${s.cols.map(c => `<th>${esc(c.h)}</th>`).join('')}</tr></thead><tbody>${s.rows.map(r => `<tr>${s.cols.map((c, i) => `<td class="${c.money || c.num ? 'n' : c.pct ? 'p' : ''}">${raw(c, r[i])}</td>`).join('')}</tr>`).join('')}</tbody>${s.total ? `<tfoot><tr>${s.cols.map((c, i) => `<td class="${c.money || c.num ? 'n' : c.pct ? 'p' : ''}">${raw(c, s.total[i])}</td>`).join('')}</tr></tfoot>` : ''}</table><br>`).join('');
+  return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8">${style}</head><body><h3>Tiger Conservation Foundation Scheme – Amrabad Tiger Reserve</h3><h4>${esc(rep.name)}</h4><p>${esc(repFiltersText(F))}</p>${body}</body></html>`;
+}
+function reportCSV(rep, F, S) {
+  const out = [['Tiger Conservation Foundation Scheme – Amrabad Tiger Reserve'], [rep.name], [repFiltersText(F)], []];
+  S.forEach(s => { out.push([s.heading]); out.push(s.cols.map(c => c.h)); s.rows.forEach(r => out.push(s.cols.map((c, i) => c.date ? fmtDate(r[i]) : r[i] ?? ''))); if (s.total) out.push(s.total.map(v => v ?? '')); out.push([]); });
+  return '﻿' + toCSV(out);
+}
+function pageReports() {
+  const s = state('reports'); const F = s.f;
+  if (!s.rep) s.rep = 'consolidated';
+  if (F.year === undefined) { const ay = uniq(DB.apo.map(a => a.year)).sort(); F.year = ay[ay.length - 1] || fyOf(todayISO()); }
+  const rep = REPORTS.find(r => r.id === s.rep);
+  const has = k => rep.f.includes(k);
+  const S = buildReport(rep.id, F);
+  const sel = (k, label, opts, all = 'All') => `<label>${label}<select data-rf="${k}">${all !== null ? `<option value="">${all}</option>` : ''}${opts.map(o => opt(o, F[k])).join('')}</select></label>`;
+  $('#main').innerHTML = `<div class="page-head"><div><h2>Reports</h2><p>Choose a report and filters. Every report has the official header and totals, and you can print it, save it as PDF, or download it for Excel.</p></div></div>
+  <div class="card rep-controls"><div class="filters">
+    <label style="flex:1 1 320px">Report<select data-rep style="max-width:none;width:100%">${REPORTS.map(r => opt(r.id, s.rep, r.name)).join('')}</select></label>
+    ${sel('year', 'Financial year', fyList().slice().reverse(), 'All years')}
+    ${sel('division', 'Division', divisions())}
+    ${has('range') ? sel('range', 'Range', F.division ? rangesOf(F.division) : uniq(Object.keys(CFG.divisions).flatMap(rangesOf))) : ''}
+    ${has('component') ? sel('component', 'Component', components()) : ''}
+    ${has('months') ? sel('from', 'From month', CFG.months, null) + sel('to', 'To month', CFG.months, null) : ''}
+    ${has('mode') ? sel('mode', 'Mode', uniq([...CFG.modes, ...DB.receipts.map(r => r.mode)])) : ''}
+    ${has('reimb') ? sel('reimb', 'Reimbursement', ['Yes', 'No']) : ''}
+  </div><div class="actions"><button class="btn primary" id="rpPrint">🖨 Print / Save as PDF</button><button class="btn" id="rpXls">Download Excel</button><button class="btn" id="rpCsv">Download CSV</button></div></div>
+  <div class="card rep-wrap">${reportHTML(rep, F, S)}</div>`;
+  if (!F.from) F.from = 'April'; if (!F.to) F.to = 'March';
+  $$('[data-rf]').forEach(el => { if (el.dataset.rf === 'from' || el.dataset.rf === 'to') el.value = F[el.dataset.rf]; el.onchange = () => { F[el.dataset.rf] = el.value; if (el.dataset.rf === 'division') F.range = ''; if (monthIdx(F.from) > monthIdx(F.to)) F.to = F.from; pageReports(); }; });
+  $('[data-rep]').onchange = e => { s.rep = e.target.value; pageReports(); };
+  const fname = ext => `TCF_${rep.id}_${(F.year || 'all').replace(/\W/g, '')}${F.division ? '_' + F.division : ''}_${todayISO()}.${ext}`;
+  $('#rpXls').onclick = () => download(fname('xls'), reportExcel(rep, F, S), 'application/vnd.ms-excel');
+  $('#rpCsv').onclick = () => download(fname('csv'), reportCSV(rep, F, S));
+  $('#rpPrint').onclick = () => {
+    let st = $('#pageSize'); if (!st) { st = document.createElement('style'); st.id = 'pageSize'; document.head.appendChild(st); }
+    st.textContent = `@page{size:A4 ${rep.wide || rep.id === 'expReg' || rep.id === 'chqReg' || rep.id === 'recReg' ? 'landscape' : 'portrait'};margin:12mm}`;
+    document.body.classList.add('print-report'); window.print(); setTimeout(() => document.body.classList.remove('print-report'), 500);
+  };
+}
+
 /* ======================= ROUTER ======================= */
-const ROUTES = { '': pageDashboard, dashboard: pageDashboard, apo: () => pageModule('apo'), expenditure: () => pageModule('expenditure'), receipts: () => pageModule('receipts'), cheques: () => pageModule('cheques'), masters: pageMasters, data: pageData };
+const ROUTES = { '': pageDashboard, dashboard: pageDashboard, apo: () => pageModule('apo'), expenditure: () => pageModule('expenditure'), receipts: () => pageModule('receipts'), cheques: () => pageModule('cheques'), masters: pageMasters, reports: pageReports, data: pageData };
 function render() {
   const r = (location.hash.replace(/^#\/?/, '') || 'dashboard').split('?')[0];
   $$('nav.side a').forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#/' + r));
