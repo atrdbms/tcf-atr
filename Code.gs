@@ -3,7 +3,7 @@
  * Google Sheets sync for the TCF finance website.
  * Deploy: Deploy > New deployment > Web app (Execute as: Me, Who has access: Anyone).
  */
-const TOKEN = 'change-this-secret';   // must match the token entered on the website
+const TOKEN = 'atr-tcf-2026';   // must match the token entered on the website
 
 const SHEETS = {
   apo:          { id: '1txVL_VcMLyJ3mNaYYgXSm90HsdZzvPKgprKoHktLa_U', tab: 'APO' },
