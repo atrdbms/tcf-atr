@@ -6,12 +6,12 @@
 const TOKEN = 'atr-tcf-2026';   // must match the token entered on the website
 
 const SHEETS = {
-  apo:          { id: '1txVL_VcMLyJ3mNaYYgXSm90HsdZzvPKgprKoHktLa_U', tab: 'APO' },
-  expenditure:  { id: '150M2ZzgGsCFpT10YW-ayXynA_xgHp67fO7SBOh5yVeM', tab: 'Expenditure' },
-  receipts:     { id: '1yDuTXrrrBE05zCrR1o-MeA0NYE-zRkrSSUWbDBD5zoM', tab: 'Sheet1' },
-  cheques:      { id: '1YBfLkAMZHuxTmSWyoHZ5G4Yzj1nkoUjq8mE9dezQJ5c', tab: 'cheques' },
-  activities:   { id: '1XTRjIvEhpkksW2XsxRw6zQSztrqXBEoJhNBOP7fg7R4', tab: 'activities' },
-  revenueItems: { id: '1Lku0zlRX2UtwsUlvuUz9J9RfxTIy_nJeSE4yOcX7o7o', tab: 'revenueactivities' },
+  apo:          { id: '15QT66wIIJFqDNzHnRN4LzcXQdGV33sUphaGLBxuym3c', tab: 'APO' },
+  expenditure:  { id: '1UNxY_Z8896wg-vpiekG54xjDqgpAyZ-jQcdMUoPh4ck', tab: 'Expenditure' },
+  receipts:     { id: '1iF8TdiHyS5DlUNoB0gZZhc5IPqwcLOx-Lkfcc-8RSm0', tab: 'Sheet1' },
+  cheques:      { id: '1vMnB8Emik7lpqz9ky9SarVDyvTNVo94d9K3V8TwXQcU', tab: 'cheques' },
+  activities:   { id: '1nlClTyRfrTsOisQzIvBD_U3G63JUYIjNaCmcuMcyvVo', tab: 'activities' },
+  revenueItems: { id: '1Cc3MeWrpNVErpwOzzfPEiBQ74k5f3ZN1Oj8aJhL-Nng', tab: 'revenueactivities' },
 };
 
 function out_(o) {
