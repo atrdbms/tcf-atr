@@ -1001,18 +1001,23 @@ function enqueue(ops) { if (!syncCfg().url) return; setQueue(queue().concat(ops)
 function setSync(st, extra) { SYNC.status = st; const el = $('#syncState'); if (!el) return;
   const n = queue().length;
   const txt = { off: 'Sheets sync off', ok: 'Synced with Google Sheets', busy: 'Syncing…', err: `Sync failed${n ? ` · ${n} change(s) waiting` : ''}`, pending: `${n} change(s) waiting to sync` }[st] || st;
-  el.textContent = txt + (extra ? ' · ' + extra : ''); el.className = 'sync ' + st; el.title = st === 'err' ? 'Changes are kept in this browser and retried automatically.' : ''; }
+  el.textContent = txt + (extra ? ' · ' + extra : ''); el.className = 'sync ' + st; el.title = st === 'err' ? 'Error: ' + (SYNC.err || 'unknown') + ' — changes are kept in this browser and retried automatically.' : ''; if (st === 'err') el.textContent += ' — ' + (SYNC.err || 'unknown error'); }
+async function callSheets(url, opts) {
+  let res; try { res = await fetch(url, opts); } catch (e) { throw new Error('Could not reach the Apps Script (check Deploy → Who has access = Anyone)'); }
+  const txt = await res.text(); let j;
+  try { j = JSON.parse(txt); } catch { const m = /<title>([^<]*)<\/title>/i.exec(txt) || /(Exception:[^<]{0,160})/i.exec(txt); throw new Error('Apps Script returned a page instead of data' + (m ? ': ' + m[1].trim() : ' (HTTP ' + res.status + ')')); }
+  if (!j.ok) throw new Error(j.error || 'Unknown error'); return j;
+}
 async function flushQueue() {
   const c = syncCfg(); if (!c.url) { setSync('off'); return true; }
   const q = queue(); if (!q.length) return true; if (SYNC.busy) return false;
   SYNC.busy = true; setSync('busy');
   try {
-    const res = await fetch(c.url, { method: 'POST', body: JSON.stringify({ action: 'ops', token: c.token || '', ops: q }) });
-    const j = await res.json(); if (!j.ok) throw new Error(j.error || 'Unknown error');
+    await callSheets(c.url, { method: 'POST', body: JSON.stringify({ action: 'ops', token: c.token || '', ops: q }) });
     setQueue(queue().slice(q.length)); SYNC.busy = false; setSync('ok');
     if (queue().length) return flushQueue();
     return true;
-  } catch (e) { SYNC.busy = false; setSync('err'); console.warn('sync', e); return false; }
+  } catch (e) { SYNC.busy = false; SYNC.err = e.message; setSync('err'); console.warn('sync', e); return false; }
 }
 async function autoPull(force) {
   const c = syncCfg(); if (!c.url || SYNC.busy) return;
@@ -1020,14 +1025,13 @@ async function autoPull(force) {
   if (!(await flushQueue())) return;            /* never overwrite local changes that haven't reached the sheet */
   SYNC.busy = true; setSync('busy');
   try {
-    const res = await fetch(c.url + (c.url.includes('?') ? '&' : '?') + 'action=pull&token=' + encodeURIComponent(c.token || ''));
-    const j = await res.json(); if (!j.ok) throw new Error(j.error || 'Unknown error');
+    const j = await callSheets(c.url + (c.url.includes('?') ? '&' : '?') + 'action=pull&token=' + encodeURIComponent(c.token || ''));
     if (queue().length) { SYNC.busy = false; return; }
     ['activities', 'revenueItems', 'apo', 'expenditure', 'receipts', 'cheques'].forEach(t => { if (j.data[t] && j.data[t].length) importInto(t, j.data[t], 'replace'); });
     DB.meta.source = 'Google Sheets (live)'; SYNC.lastPull = Date.now(); saveDB();
     SYNC.busy = false; setSync('ok', 'updated ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
     if (!$('.modal-bg')) render();
-  } catch (e) { SYNC.busy = false; setSync('err'); console.warn('pull', e); }
+  } catch (e) { SYNC.busy = false; SYNC.err = e.message; setSync('err'); console.warn('pull', e); }
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') autoPull(); });
 setInterval(() => { if (document.visibilityState === 'visible' && !$('.modal-bg')) autoPull(); }, 300000);
