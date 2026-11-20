@@ -6,12 +6,12 @@
 const TOKEN = 'change-this-secret';   // must match the token entered on the website
 
 const SHEETS = {
-  apo:          { id: 'PASTE-SHEET-ID-HERE', tab: 'APO' },
-  expenditure:  { id: 'PASTE-SHEET-ID-HERE', tab: 'Expenditure' },
-  receipts:     { id: 'PASTE-SHEET-ID-HERE', tab: 'Sheet1' },
-  cheques:      { id: 'PASTE-SHEET-ID-HERE', tab: 'cheques' },
-  activities:   { id: 'PASTE-SHEET-ID-HERE', tab: 'activities' },
-  revenueItems: { id: 'PASTE-SHEET-ID-HERE', tab: 'revenueactivities' },
+  apo:          { id: '1txVL_VcMLyJ3mNaYYgXSm90HsdZzvPKgprKoHktLa_U', tab: 'APO' },
+  expenditure:  { id: '150M2ZzgGsCFpT10YW-ayXynA_xgHp67fO7SBOh5yVeM', tab: 'Expenditure' },
+  receipts:     { id: '1yDuTXrrrBE05zCrR1o-MeA0NYE-zRkrSSUWbDBD5zoM', tab: 'Sheet1' },
+  cheques:      { id: '1YBfLkAMZHuxTmSWyoHZ5G4Yzj1nkoUjq8mE9dezQJ5c', tab: 'cheques' },
+  activities:   { id: '1XTRjIvEhpkksW2XsxRw6zQSztrqXBEoJhNBOP7fg7R4', tab: 'activities' },
+  revenueItems: { id: '1Lku0zlRX2UtwsUlvuUz9J9RfxTIy_nJeSE4yOcX7o7o', tab: 'revenueactivities' },
 };
 
 function out_(o) {
@@ -30,13 +30,39 @@ function doGet(e) {
   return out_({ ok: true, data: data });
 }
 
-/** Push: backs up each tab, then overwrites it with the website's records. */
+/** Row-by-row changes sent automatically by the website on every save / delete. */
+function applyOps_(ops) {
+  const norm = function (s) { return String(s).trim().toLowerCase(); };
+  ops.forEach(function (o) {
+    const cfg = SHEETS[o.t];
+    if (!cfg) return;
+    const sh = SpreadsheetApp.openById(cfg.id).getSheetByName(cfg.tab);
+    const head = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getDisplayValues()[0].map(String);
+    const idCol = head.map(norm).findIndex(function (h) { return h === 'id' || h === 'id no'; });
+    if (idCol < 0) throw new Error('No ID column in ' + cfg.tab);
+    const last = sh.getLastRow();
+    const ids = last > 1 ? sh.getRange(2, idCol + 1, last - 1, 1).getDisplayValues().map(function (r) { return String(r[0]).trim(); }) : [];
+    const at = ids.indexOf(String(o.id).trim());
+    if (o.del) { if (at >= 0) sh.deleteRow(at + 2); return; }
+    o.headers.forEach(function (h) {           // add any new column (e.g. APO ID) to the header row
+      if (head.map(norm).indexOf(norm(h)) < 0) { head.push(h); sh.getRange(1, head.length).setValue(h); }
+    });
+    const keys = head.map(norm);
+    const row = at >= 0 ? sh.getRange(at + 2, 1, 1, head.length).getValues()[0] : head.map(function () { return ''; });
+    o.headers.forEach(function (h, i) { row[keys.indexOf(norm(h))] = o.row[i]; });
+    if (at >= 0) sh.getRange(at + 2, 1, 1, head.length).setValues([row]);
+    else sh.appendRow(row);
+  });
+}
+
+/** POST: action "ops" = automatic row changes; action "push" = back up each tab, then overwrite it. */
 function doPost(e) {
   const body = JSON.parse(e.postData.contents);
   if (body.token !== TOKEN) return out_({ ok: false, error: 'Wrong token' });
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    if (body.action === 'ops') { applyOps_(body.ops || []); return out_({ ok: true }); }
     const stamp = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd HHmmss');
     Object.keys(SHEETS).forEach(function (k) {
       const rows = body.data[k];
